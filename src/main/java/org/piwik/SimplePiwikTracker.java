@@ -141,6 +141,10 @@ public class SimplePiwikTracker implements PiwikTracker {
 	private String ip;
 
 	private URL urlReferrer;
+	
+    private SimpleDateFormat dateHHmmssFromatter = new SimpleDateFormat("HH:mm:ss");
+
+    private SimpleDateFormat dateFullTZFormatter = new SimpleDateFormat("yyyyMMdd HH:mm:ssZ");
 
 	/**
 	 * 
@@ -505,7 +509,7 @@ public class SimplePiwikTracker implements PiwikTracker {
 		Date date = null;
 		if (time != null) {
 			try {
-				date = new SimpleDateFormat("HH:mm:ss").parse(time);
+				date = dateHHmmssFromatter.parse(time);
 			} catch (final ParseException e) {
 				throw new PiwikException("Error while parsing given time '" + time + "' to a date object", e);
 			}
@@ -528,8 +532,9 @@ public class SimplePiwikTracker implements PiwikTracker {
 	 * This function is called in the defined URL for the tacking purpose.
 	 * 
 	 * @return the query part for the URL as string object
+	 * @throws PiwikException 
 	 */
-	public final String getGeneralQuery() {
+	public final String getGeneralQuery() throws PiwikException {
 		final URL rootURL = this.apiurl;
 		final String rootQuery = rootURL.getQuery();
 		final String withIdsite = this.addParameter(rootQuery, "idsite", this.idSite);
@@ -542,8 +547,12 @@ public class SimplePiwikTracker implements PiwikTracker {
 		final String withReferrerForcedTimestamp = this.addParameter(withReferrer, "_refts", this.forcedDatetime);
 		final String withIp = this.addParameter(withReferrerForcedTimestamp, "cip", this.ip);
 		final String withForcedTimestamp = this.addParameter(withIp, "cdt", forcedDatetime == null ? null
-				: new SimpleDateFormat("yyyyMMdd HH:mm:ssZ").format(forcedDatetime));
+				: dateFullTZFormatter.format(forcedDatetime));
 		final String withAuthtoken = this.addParameter(withForcedTimestamp, "token_auth", this.tokenAuth);
+		if(!isBlank(tokenAuth)&& (!isBlank(this.ip) || forcedDatetime!=null)){
+		    throw new PiwikException("Setting valid token_auth is mandatory for setting visitor ip or forcedDateTime in a Piwik request");
+		}
+		
 		String withPlugins = withAuthtoken;
 		for (final Map.Entry<BrowserPlugins, Boolean> entry : this.plugins.entrySet()) {
 			withPlugins = this.addParameter(withPlugins, entry.getKey().toString(), entry.getValue());
@@ -780,7 +789,9 @@ public class SimplePiwikTracker implements PiwikTracker {
 			output = this.makeURL(resultQuery);
 		} catch (final MalformedURLException e) {
 			LOGGER.log(Level.SEVERE, "Error while building track url", e);
-		}
+		} catch (PiwikException e) {
+		    LOGGER.log(Level.SEVERE, "Error while building track url", e);
+        }
 		return output;
 	}
 
@@ -799,7 +810,9 @@ public class SimplePiwikTracker implements PiwikTracker {
 			output = this.makeURL(resultQuery);
 		} catch (final MalformedURLException e) {
 			LOGGER.log(Level.SEVERE, "Error while building track url", e);
-		}
+		} catch (PiwikException e) {
+            LOGGER.log(Level.SEVERE, "Error while building track url", e);
+        }
 		return output;
 	}
 
@@ -812,7 +825,9 @@ public class SimplePiwikTracker implements PiwikTracker {
 			output = this.makeURL(resultQuery);
 		} catch (final MalformedURLException e) {
 			LOGGER.log(Level.SEVERE, "Error while building track url", e);
-		}
+		} catch (PiwikException e) {
+            LOGGER.log(Level.SEVERE, "Error while building track url", e);
+        }
 		return output;
 	}
 
@@ -825,7 +840,9 @@ public class SimplePiwikTracker implements PiwikTracker {
 			output = this.makeURL(resultQuery);
 		} catch (final MalformedURLException e) {
 			LOGGER.log(Level.SEVERE, "Error while building track url", e);
-		}
+		} catch (PiwikException e) {
+            LOGGER.log(Level.SEVERE, "Error while building track url", e);
+        }
 		return output;
 	}
 
@@ -838,10 +855,20 @@ public class SimplePiwikTracker implements PiwikTracker {
 			output = this.makeURL(resultQuery);
 		} catch (final MalformedURLException e) {
 			LOGGER.log(Level.SEVERE, "Error while building track url", e);
-		}
+		} catch (PiwikException e) {
+            LOGGER.log(Level.SEVERE, "Error while building track url", e);
+        }
 		return output;
 	}
-
+	
+	private static boolean isEmpty(String input){
+	    return input == null || input.length() == 0;
+	}
+	
+    private static boolean isBlank(String input){
+        return isEmpty(input) || isEmpty(input.trim());
+    }
+	
 	/**
 	 * Sends the request to the PIWIK-Server.
 	 * @param destination the built request string.
@@ -858,7 +885,13 @@ public class SimplePiwikTracker implements PiwikTracker {
 				connection.setInstanceFollowRedirects(false);
 				connection.setRequestMethod("GET");
 				connection.setConnectTimeout(600);
+				if(isBlank(userAgent)){
+				    throw new PiwikException("Setting user-agent is mandatory in a Piwik request");
+				}
 				connection.setRequestProperty("User-Agent", userAgent);
+				if(isBlank(language)){
+                    throw new PiwikException("Setting locale is mandatory in a Piwik request");
+                }
 				connection.setRequestProperty("Accept-Language", language);
 				if (requestCookie != null) {
 					connection.setRequestProperty("Cookie", requestCookie.getName() + "=" + requestCookie.getValue());
