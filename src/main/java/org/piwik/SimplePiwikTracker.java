@@ -549,7 +549,7 @@ public class SimplePiwikTracker implements PiwikTracker {
 		final String withForcedTimestamp = this.addParameter(withIp, "cdt", forcedDatetime == null ? null
 				: dateFullTZFormatter.format(forcedDatetime));
 		final String withAuthtoken = this.addParameter(withForcedTimestamp, "token_auth", this.tokenAuth);
-		if(!isBlank(tokenAuth)&& (!isBlank(this.ip) || forcedDatetime!=null)){
+		if(isBlank(tokenAuth) && (!isBlank(this.ip) || forcedDatetime!=null)){
 		    throw new PiwikException("Setting valid token_auth is mandatory for setting visitor ip or forcedDateTime in a Piwik request");
 		}
 		
